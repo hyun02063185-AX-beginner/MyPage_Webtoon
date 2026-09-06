@@ -1,0 +1,29 @@
+# dependencies and builds
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+
+# secrets and local environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# runtime data and generated assets
+data/
+storage/
+logs/
+legacy-input/
+backup_images/
+
+# local files
+*.log
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+.DS_Store
+Thumbs.db
