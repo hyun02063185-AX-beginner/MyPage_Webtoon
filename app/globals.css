@@ -11,6 +11,9 @@ h1 { font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.12; margin: 12px 0; }
 .card h2 { margin-top: 0; }.note { color: #475569; font-size: .9rem; }
 .form-grid { display: grid; gap: 12px; }.form-grid label, .card form label { display: grid; gap: 5px; font-weight: 600; }
 input, textarea { border: 1px solid #b9c2d7; border-radius: 8px; font: inherit; padding: 9px; width: 100%; }
+select { border: 1px solid #b9c2d7; border-radius: 8px; font: inherit; padding: 9px; }
 textarea { min-height: 72px; } button { background: #4f46e5; border: 0; border-radius: 8px; color: white; cursor: pointer; font: inherit; font-weight: 700; padding: 10px 14px; }
 li { margin: 14px 0; line-height: 1.5; }
 .secondary { background: #475569; margin-top: 18px; }
+.search-form { align-items: end; display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) auto auto; }
+@media (max-width: 560px) { .search-form { grid-template-columns: 1fr; } }

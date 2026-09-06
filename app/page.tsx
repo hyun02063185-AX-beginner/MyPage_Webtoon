@@ -3,12 +3,17 @@ import { createProject } from "@/app/actions/projects";
 import { db } from "@/lib/db";
 import Link from "next/link";
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; error?: string }> }) {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; projectQ?: string; status?: string; error?: string }> }) {
   const readiness = getRuntimeReadiness();
-  const { q = "", error } = await searchParams;
+  const { q = "", projectQ = "", status = "ACTIVE", error } = await searchParams;
   const query = q.trim();
+  const projectQuery = projectQ.trim();
+  const projectWhere = {
+    ...(status === "ALL" ? {} : { status: status === "ARCHIVED" ? "ARCHIVED" : { not: "ARCHIVED" } }),
+    ...(projectQuery ? { OR: [{ concept: { contains: projectQuery } }, { audience: { contains: projectQuery } }] } : {}),
+  };
   const [projects, terms] = await Promise.all([
-    db.project.findMany({ orderBy: { updatedAt: "desc" }, take: 12 }),
+    db.project.findMany({ where: projectWhere, orderBy: { updatedAt: "desc" }, take: 30 }),
     db.term.findMany({ where: query ? { OR: [{ term: { contains: query } }, { definition: { contains: query } }] } : undefined, orderBy: { term: "asc" }, take: 20 }),
   ]);
 
@@ -35,6 +40,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <button type="submit">프로젝트 만들기</button>
         </form>
         <p>최근 프로젝트: {projects.length}개</p>
+        <form className="search-form"><label>프로젝트 검색<input name="projectQ" defaultValue={projectQuery} placeholder="개념 또는 대상 독자" /></label><label>상태<select name="status" defaultValue={status}><option value="ACTIVE">진행 중</option><option value="ARCHIVED">보관됨</option><option value="ALL">전체</option></select></label><button type="submit">찾기</button></form>
         <ul>{projects.map((project) => <li key={project.id}><Link href={`/projects/${project.id}`}>{project.concept}</Link> · {project.status}<br />{project.audience} 대상</li>)}</ul>
       </section>
       <section aria-labelledby="terms-title" className="card">
