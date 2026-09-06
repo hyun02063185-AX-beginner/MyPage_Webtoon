@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
-import { approveScenarioVersion, archiveProject, createMockScenarioVersion, generateMockImageAttempt, saveScenarioRevision, submitImageReview, updateProject } from "@/app/actions/projects";
+import { approveScenarioVersion, archiveProject, createMockScenarioVersion, generateMockImageAttempt, requestExport, saveGalleryMetadata, saveScenarioRevision, submitImageReview, updateProject } from "@/app/actions/projects";
 import { db } from "@/lib/db";
 import { getMockPromptPreview } from "@/lib/image/generation";
 import { panelIssueTypes } from "@/lib/review/validation";
 import { scenarioSchema } from "@/lib/scenario/schema";
+import { checkExportEligibility, parseStoredMetadata } from "@/lib/export/eligibility";
 
 const workflowSteps = [
   ["DRAFT", "1. 프로젝트", "개념·대상·목적을 정합니다."],
@@ -27,15 +28,17 @@ function issueLabel(issue: (typeof panelIssueTypes)[number]) {
   return ({ NORMAL: "정상", TYPO: "오타", MISSING: "누락", CROPPED: "잘림", LAYOUT: "배치 문제", OTHER: "기타" })[issue];
 }
 
-export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; scenario?: string; scenarioError?: string; generation?: string; generationError?: string; review?: string; reviewError?: string; compare?: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; scenario?: string; scenarioError?: string; generation?: string; generationError?: string; review?: string; reviewError?: string; compare?: string; export?: string; exportError?: string }> }) {
   const { id } = await params;
-  const { saved, error, scenario: scenarioNotice, scenarioError, generation, generationError, review, reviewError, compare } = await searchParams;
+  const { saved, error, scenario: scenarioNotice, scenarioError, generation, generationError, review, reviewError, compare, export: exportNotice, exportError } = await searchParams;
   const project = await db.project.findUnique({
     where: { id },
     include: {
       selectedScenarioVersion: true,
       scenarioVersions: { orderBy: { version: "desc" } },
       imageAttempts: { orderBy: { createdAt: "desc" }, include: { imageReview: true } },
+      selectedImageAttempt: { include: { imageReview: true } },
+      exportBundles: { orderBy: { createdAt: "desc" } },
       generationLock: true,
     },
   });
@@ -65,6 +68,10 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const rejectedAttempt = project.imageAttempts.find((attempt) => attempt.imageReview?.result === "REJECTED");
   const compareAttempt = project.imageAttempts.find((attempt) => attempt.id === compare) ?? project.imageAttempts.find((attempt) => attempt.id !== reviewAttempt?.id);
   const currentWorkflowStep = workflowPosition(project.status);
+  const metadata = parseStoredMetadata(project);
+  const metadataParagraphs = metadata?.paragraphs.join("\n\n") ?? "";
+  const exportEligibility = checkExportEligibility(project);
+  const hasPassedMock = project.imageAttempts.some((attempt) => attempt.isMock && attempt.imageReview?.result === "PASSED");
 
   return <main className="shell">
     <p><Link href="/">← 프로젝트 목록</Link></p>
@@ -78,6 +85,14 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     {review === "mock-passed" && <p role="status">검수표는 통과로 저장했지만 MOCK 결과이므로 최종 내보내기는 계속 차단됩니다.</p>}
     {review === "passed" && <p role="status">사람 검수가 통과했습니다. 다음 단계에서 최종 미리보기와 내보내기를 준비할 수 있습니다.</p>}
     {reviewError && <p role="alert">검수 결과를 저장할 수 없습니다. 1~4컷 판정과 반려 사유 또는 전체 통과 확인을 점검해 주세요.</p>}
+    {exportNotice === "metadata-saved" && <p role="status">갤러리 메타데이터를 저장했습니다. 실제 이미지와 검수 조건이 충족되면 내보낼 수 있습니다.</p>}
+    {exportNotice === "created" && <p role="status">검증된 WebP와 갤러리 JSON 묶음을 로컬 export 폴더에 만들었습니다.</p>}
+    {exportError === "metadata" && <p role="alert">slug, 제목, 이미지 설명, 해설 문단을 모두 규칙에 맞게 입력해 주세요.</p>}
+    {exportError === "slug" && <p role="alert">이미 사용 중인 slug입니다. 다른 영문 소문자 slug를 입력해 주세요.</p>}
+    {exportError === "mock_export_blocked" && <p role="alert">MOCK 결과는 실제 웹툰이 아니므로 내보낼 수 없습니다.</p>}
+    {exportError === "review_required" && <p role="alert">사람이 통과 처리한 LIVE 이미지 시도를 먼저 선택해야 합니다.</p>}
+    {exportError === "image_file_missing" && <p role="alert">내보낼 실제 WebP 파일이 아직 저장되지 않았습니다. 현재 Phase에서는 MOCK 결과만 있어 파일을 만들지 않습니다.</p>}
+    {exportError === "export_validation_error" && <p role="alert">갤러리 JSON 계약을 검증하지 못했습니다. 메타데이터를 다시 저장해 주세요.</p>}
 
     <section className="card" aria-labelledby="workflow-title">
       <h2 id="workflow-title">이 도구로 만드는 것</h2>
@@ -134,6 +149,19 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       </> : <p className="note">첫 생성 시도가 기록되면 프롬프트·옵션·검수 결과 비교가 여기에 쌓입니다.</p>}
     </section>
 
-    <section className="card export-placeholder" aria-labelledby="export-title"><h2 id="export-title">5단계 · 완성 웹툰 미리보기·내보내기</h2><p>Phase 6에서 LIVE 생성 이미지와 사람이 통과한 검수표를 바탕으로 이 영역에 최종 4컷 미리보기, WebP 및 MyPage 갤러리용 JSON 내보내기가 나타납니다.</p><p><strong>내보내기 조건:</strong> {project.imageAttempts.some((attempt) => attempt.isMock) ? "MOCK 생성본이 있어 최종 내보내기가 차단되어 있습니다." : "LIVE 이미지와 전체 검수 통과가 필요합니다."}</p></section>
+    <section className="card export-placeholder" id="export" aria-labelledby="export-title"><h2 id="export-title">5단계 · 갤러리 메타데이터·내보내기</h2>
+      <p>여기서 MyPage 갤러리에 표시할 제목·이미지 설명·해설을 작성합니다. 실제 WebP 이미지와 사람이 통과한 검수 기록이 모두 있어야 JSON과 같은 이름의 WebP 묶음을 만듭니다.</p>
+      <form action={saveGalleryMetadata.bind(null, project.id)} className="form-grid" aria-label="갤러리 메타데이터">
+        <label>slug (영문 소문자·숫자·하이픈)<input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={80} defaultValue={project.slug ?? ""} placeholder="api-request-response" /></label>
+        <label>갤러리 제목<input name="title" required maxLength={160} defaultValue={project.title ?? ""} placeholder="API를 4컷으로 이해하기" /></label>
+        <label>이미지 설명 (imageAlt)<textarea name="imageAlt" required maxLength={500} defaultValue={project.imageAlt ?? ""} placeholder="4컷 장면과 핵심 메시지를 설명해 주세요." /></label>
+        <label>해설 문단 (빈 줄로 문단 구분)<textarea name="paragraphs" required maxLength={9000} defaultValue={metadataParagraphs} placeholder="첫 번째 해설 문단\n\n두 번째 해설 문단" /></label>
+        <button type="submit">메타데이터 저장·검증</button>
+      </form>
+      <p><strong>내보내기 상태: </strong>{exportEligibility.ok ? "내보내기 준비 완료" : hasPassedMock ? "MOCK 검수 통과 — 최종 내보내기 차단" : "LIVE 이미지·사람 검수·WebP 파일 대기"}</p>
+      {hasPassedMock && <p className="note">MOCK 결과는 실제 이미지 바이트가 아니므로 WebP나 JSON을 만들지 않습니다. 실제 LIVE 생성과 사람 검수 통과 뒤에만 결과물을 확인할 수 있습니다.</p>}
+      <form action={requestExport.bind(null, project.id)}><button type="submit" disabled={!exportEligibility.ok}>WebP + JSON 묶음 내보내기</button></form>
+      {project.exportBundles.length > 0 ? <><h3>내보낸 묶음 이력</h3><ul>{project.exportBundles.map((bundle) => <li key={bundle.id}>v{bundle.exportVersion} · {bundle.createdAt.toLocaleString("ko-KR")} · {bundle.imagePath} · {bundle.jsonPath}</li>)}</ul></> : <p className="note">아직 실제 내보낸 묶음이 없습니다.</p>}
+    </section>
   </main>;
 }

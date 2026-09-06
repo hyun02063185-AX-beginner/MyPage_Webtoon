@@ -40,7 +40,10 @@ export async function recordImageReview(imageAttemptId: string, input: ImageRevi
       if (!canTransitionProject("IMAGE_REVIEW", "APPROVED_FOR_EXPORT")) {
         return { kind: "rejected", code: "ATTEMPT_NOT_REVIEWABLE" };
       }
-      await tx.project.update({ where: { id: attempt.projectId }, data: { status: "APPROVED_FOR_EXPORT" } });
+      await tx.project.update({
+        where: { id: attempt.projectId },
+        data: { status: "APPROVED_FOR_EXPORT", selectedImageAttemptId: attempt.id },
+      });
     }
     return { kind: "recorded", result, exportBlockedByMock };
   });

@@ -40,5 +40,12 @@ test("creates, revises, preserves, and approves a four-panel mock scenario", asy
   await page.getByLabel("네 컷 모두 정상이며 사람이 최종 확인했습니다.").check();
   await page.getByRole("button", { name: "검수 결과 저장" }).click();
   await expect(page.getByText("검수표는 통과로 저장했지만 MOCK 결과이므로 최종 내보내기는 계속 차단됩니다.")).toBeVisible();
-  await expect(page.getByText("MOCK 생성본이 있어 최종 내보내기가 차단되어 있습니다.")).toBeVisible();
+  await expect(page.getByText("MOCK 검수 통과 — 최종 내보내기 차단")).toBeVisible();
+  await page.getByLabel("slug (영문 소문자·숫자·하이픈)").fill(`mock-export-blocked-${Date.now()}`);
+  await page.getByLabel("갤러리 제목").fill("MOCK 내보내기 차단 확인");
+  await page.getByLabel("이미지 설명 (imageAlt)").fill("실제 이미지가 없는 MOCK 결과입니다.");
+  await page.getByLabel("해설 문단 (빈 줄로 문단 구분)").fill("이 결과는 실제 내보내기 대상이 아닙니다.");
+  await page.getByRole("button", { name: "메타데이터 저장·검증" }).click();
+  await expect(page.getByText("갤러리 메타데이터를 저장했습니다.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "WebP + JSON 묶음 내보내기" })).toBeDisabled();
 });

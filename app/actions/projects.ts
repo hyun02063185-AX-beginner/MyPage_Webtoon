@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { canTransitionProject, type ProjectStatus } from "@/lib/domain/project-status";
 import { createMockScenario } from "@/lib/scenario/mock";
@@ -9,6 +10,8 @@ import { scenarioSchema, type Scenario } from "@/lib/scenario/schema";
 import { createMockImageAttempt } from "@/lib/image/generation";
 import { recordImageReview } from "@/lib/review/record";
 import { imageReviewInputSchema } from "@/lib/review/validation";
+import { galleryMetadataSchema, parseParagraphs } from "@/lib/export/contract";
+import { createGalleryExport } from "@/lib/export/create";
 
 const projectInput = z.object({
   concept: z.string().trim().min(1).max(80),
@@ -30,6 +33,43 @@ export async function updateProject(id: string, formData: FormData) {
   if (!result.success) redirect(`/projects/${id}?error=invalid-project`);
   await db.project.update({ where: { id }, data: result.data });
   redirect(`/projects/${id}?saved=1`);
+}
+
+export async function saveGalleryMetadata(id: string, formData: FormData) {
+  const validId = idInput.safeParse(id);
+  const metadata = galleryMetadataSchema.safeParse({
+    slug: formData.get("slug"),
+    title: formData.get("title"),
+    imageAlt: formData.get("imageAlt"),
+    paragraphs: parseParagraphs(formData.get("paragraphs")),
+  });
+  if (!validId.success || !metadata.success) redirect(`/projects/${id}?exportError=metadata`);
+
+  try {
+    const { paragraphs, ...fields } = metadata.data;
+    await db.project.update({
+      where: { id: validId.data },
+      data: { ...fields, paragraphsJson: JSON.stringify(paragraphs) },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect(`/projects/${id}?exportError=slug`);
+    }
+    throw error;
+  }
+  redirect(`/projects/${id}?export=metadata-saved#export`);
+}
+
+/**
+ * Phase 6 keeps this server gate even though current MOCK attempts have no image bytes.
+ * A later LIVE adapter may write a verified WebP only after this eligibility check passes.
+ */
+export async function requestExport(projectId: string) {
+  const validId = idInput.safeParse(projectId);
+  if (!validId.success) redirect("/?error=invalid-project");
+  const result = await createGalleryExport(validId.data);
+  if (result.kind === "blocked") redirect(`/projects/${validId.data}?exportError=${result.code.toLowerCase()}#export`);
+  redirect(`/projects/${validId.data}?export=created#export`);
 }
 
 export async function archiveProject(id: string) {

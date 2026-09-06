@@ -10,6 +10,10 @@ datasource db {
 model Project {
   id                        String            @id @default(cuid())
   concept                   String
+  slug                      String?           @unique
+  title                     String?
+  imageAlt                  String?
+  paragraphsJson            String?
   audience                  String
   purpose                   String
   style                     String
@@ -19,6 +23,9 @@ model Project {
   selectedScenarioVersion   ScenarioVersion?  @relation("SelectedScenarioVersion", fields: [selectedScenarioVersionId], references: [id])
   scenarioVersions          ScenarioVersion[] @relation("ProjectScenarioVersions")
   imageAttempts             ImageAttempt[]    @relation("ProjectImageAttempts")
+  selectedImageAttemptId    String?           @unique
+  selectedImageAttempt      ImageAttempt?     @relation("SelectedImageAttempt", fields: [selectedImageAttemptId], references: [id])
+  exportBundles             ExportBundle[]
   generationLock            GenerationLock?
   createdAt                 DateTime          @default(now())
   updatedAt                 DateTime          @updatedAt
@@ -79,10 +86,30 @@ model ImageAttempt {
   parentAttempt         ImageAttempt?   @relation("AttemptRegenerations", fields: [parentAttemptId], references: [id], onDelete: Restrict)
   regeneratedAttempts   ImageAttempt[]  @relation("AttemptRegenerations")
   imageReview           ImageReview?
+  selectedForProject    Project?        @relation("SelectedImageAttempt")
+  exportBundles         ExportBundle[]
 
   @@index([projectId, createdAt])
   @@index([scenarioVersionId])
   @@index([parentAttemptId])
+}
+
+model ExportBundle {
+  id             String       @id @default(cuid())
+  projectId      String
+  imageAttemptId String
+  exportVersion  Int
+  imagePath      String
+  jsonPath       String
+  archivePath    String?
+  imageSha256    String
+  jsonSha256     String
+  createdAt      DateTime     @default(now())
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  imageAttempt   ImageAttempt @relation(fields: [imageAttemptId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, exportVersion])
+  @@index([imageAttemptId, createdAt])
 }
 
 model ImageReview {
