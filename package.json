@@ -1,0 +1,40 @@
+{
+  "name": "mypage-webtoon-generator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "set RUST_LOG=info&& prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.1",
+    "better-sqlite3": "12.8.0",
+    "dotenv": "17.3.1",
+    "next": "16.3.4",
+    "openai": "7.10.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "24.10.8",
+    "@types/react": "19.2.8",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.3.4",
+    "prisma": "^6.19.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
+  }
+}
