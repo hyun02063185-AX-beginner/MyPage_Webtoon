@@ -59,6 +59,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <p>{query ? `“${query}” 검색 결과` : "신규 선정 목록"}: {terms.length}개 표시</p>
         <ul>{terms.map((term) => <li key={term.id}><strong>{term.term}</strong> · {term.category}<br />{term.definition}</li>)}</ul>
       </section>
+      <section aria-labelledby="legacy-title" className="card">
+        <h2 id="legacy-title">과거 웹툰 후보 검토</h2>
+        <p>기존 `backup_images/` 원본은 새 프로젝트와 분리해 읽기 전용으로 검토합니다. 프롬프트 없는 과거 자산은 추정하지 않으며, 자동 이관하지 않습니다.</p>
+        <Link href="/legacy">과거 이미지 후보 검토하기 →</Link>
+      </section>
     </main>
   );
 }
