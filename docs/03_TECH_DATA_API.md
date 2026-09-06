@@ -162,7 +162,7 @@ OpenAI Image API는 WebP 출력과 압축 설정을 지원한다. 프로젝트�
 ## 8. 주요 오류 코드
 
 - `INVALID_INPUT`
-- `API_KEY_MISSING`
+- `API_AUTH_FAILED` (키 누락 또는 인증·권한 거부)
 - `AI_GENERATION_DISABLED`
 - `SCENARIO_NOT_APPROVED`
 - `SCENARIO_VERSION_MISMATCH`

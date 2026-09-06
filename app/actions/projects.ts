@@ -8,6 +8,8 @@ import { canTransitionProject, type ProjectStatus } from "@/lib/domain/project-s
 import { createMockScenario } from "@/lib/scenario/mock";
 import { scenarioSchema, type Scenario } from "@/lib/scenario/schema";
 import { createMockImageAttempt } from "@/lib/image/generation";
+import { createLiveImageAttempt } from "@/lib/image/live-generation";
+import { getImageRuntime } from "@/lib/config/image-runtime";
 import { recordImageReview } from "@/lib/review/record";
 import { imageReviewInputSchema } from "@/lib/review/validation";
 import { galleryMetadataSchema, parseParagraphs } from "@/lib/export/contract";
@@ -204,7 +206,7 @@ export async function approveScenarioVersion(projectId: string, scenarioVersionI
   redirect(`/projects/${projectId}?scenario=approved`);
 }
 
-export async function generateMockImageAttempt(projectId: string, formData: FormData) {
+export async function generateImageAttempt(projectId: string, formData: FormData) {
   const projectIdResult = idInput.safeParse(projectId);
   const idempotencyKeyResult = idempotencyKeyInput.safeParse(formData.get("idempotencyKey"));
   if (!projectIdResult.success || !idempotencyKeyResult.success) {
@@ -221,11 +223,14 @@ export async function generateMockImageAttempt(projectId: string, formData: Form
   if (regeneration && !regeneration.success) {
     redirect(`/projects/${projectIdResult.data}?generationError=invalid_regeneration`);
   }
-  const result = await createMockImageAttempt({
+  const input = {
     projectId: projectIdResult.data,
     idempotencyKey: idempotencyKeyResult.data,
     ...(regeneration ? regeneration.data : {}),
-  });
+  };
+  const result = getImageRuntime().mode === "live"
+    ? await createLiveImageAttempt(input)
+    : await createMockImageAttempt(input);
   if (result.kind === "created" || result.kind === "idempotent") {
     redirect(`/projects/${projectIdResult.data}?generation=${result.status.toLowerCase()}`);
   }

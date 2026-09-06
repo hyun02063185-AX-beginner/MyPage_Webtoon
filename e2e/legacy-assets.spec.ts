@@ -12,6 +12,6 @@ test("reviews legacy candidates without importing them, then prepares only an ex
   await firstCandidate.getByRole("checkbox", { name: "이 후보를 이관 준비 목록에 포함" }).check();
   await page.getByRole("button", { name: "선택한 후보로 이관 준비 계획 보기" }).click();
 
-  await expect(page.getByText("1개 후보를 명시적으로 선택했습니다. 아직 실제 이관은 실행하지 않았습니다.")).toBeVisible();
+  await expect(page.getByText("1개 후보를 명시적으로 선택했습니다. 원본은 그대로 두고, 아래 버튼을 눌러야 이관을 시작합니다.")).toBeVisible();
   await expect(page.getByText(/상태: PENDING_EXPLICIT_IMPORT/)).toBeVisible();
 });

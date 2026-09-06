@@ -10,7 +10,7 @@ test("creates, revises, preserves, and approves a four-panel mock scenario", asy
 
   await page.getByRole("button", { name: "MOCK 시나리오 만들기" }).click();
   await expect(page.getByText("선택된 버전: v1")).toBeVisible();
-  await expect(page.getByText("MOCK", { exact: true })).toBeVisible();
+  await expect(page.getByText(/출처: MOCK_PHASE_3/)).toBeVisible();
 
   await page.getByLabel("대사 (줄마다 하나)").nth(1).fill("수정한 두 번째 컷 대사");
   await page.getByRole("button", { name: "수정본을 새 버전으로 저장" }).click();
@@ -25,7 +25,7 @@ test("creates, revises, preserves, and approves a four-panel mock scenario", asy
   await page.getByRole("button", { name: "MOCK 이미지 생성 시도 기록" }).click();
   await expect(page.getByText("MOCK 이미지 생성 시도가 준비됨 상태로 기록되었습니다.")).toBeVisible();
   await expect(page.getByText("현재 상태:")).toContainText("IMAGE_REVIEW");
-  await expect(page.getByText("MOCK — 실제 이미지 없음")).toBeVisible();
+  await expect(page.getByText("MOCK — 실제 이미지 없음").first()).toBeVisible();
 
   await page.getByLabel("2컷 판정").selectOption("TYPO");
   await page.getByLabel("반려 사유 (문제가 한 컷이라도 있으면 필수)").fill("두 번째 컷의 한글 대사에 오타가 있습니다.");
@@ -35,7 +35,7 @@ test("creates, revises, preserves, and approves a four-panel mock scenario", asy
   await expect(page.getByRole("heading", { name: "반려된 이미지 수정 재생성" })).toBeVisible();
 
   await page.getByLabel("수정 지시").fill("두 번째 컷의 한국어 대사를 정확히 고쳐 주세요.");
-  await page.getByRole("button", { name: "반려 사유로 MOCK 재생성 기록" }).click();
+  await page.getByRole("button", { name: "반려 사유로 MOCK 재생성" }).click();
   await expect(page.getByText("현재 상태:")).toContainText("IMAGE_REVIEW");
   await page.getByLabel("네 컷 모두 정상이며 사람이 최종 확인했습니다.").check();
   await page.getByRole("button", { name: "검수 결과 저장" }).click();

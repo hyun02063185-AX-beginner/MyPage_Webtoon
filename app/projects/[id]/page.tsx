@@ -1,12 +1,14 @@
+/* eslint-disable @next/next/no-img-element -- authenticated local attempt bytes are intentionally served unoptimized. */
 import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
-import { approveScenarioVersion, archiveProject, createMockScenarioVersion, generateMockImageAttempt, requestExport, saveGalleryMetadata, saveScenarioRevision, submitImageReview, updateProject } from "@/app/actions/projects";
+import { approveScenarioVersion, archiveProject, createMockScenarioVersion, generateImageAttempt, requestExport, saveGalleryMetadata, saveScenarioRevision, submitImageReview, updateProject } from "@/app/actions/projects";
 import { db } from "@/lib/db";
 import { getMockPromptPreview } from "@/lib/image/generation";
 import { panelIssueTypes } from "@/lib/review/validation";
 import { scenarioSchema } from "@/lib/scenario/schema";
 import { checkExportEligibility, parseStoredMetadata } from "@/lib/export/eligibility";
+import { getImageRuntime } from "@/lib/config/image-runtime";
 
 const workflowSteps = [
   ["DRAFT", "1. 프로젝트", "개념·대상·목적을 정합니다."],
@@ -26,6 +28,11 @@ function workflowPosition(status: string) {
 
 function issueLabel(issue: (typeof panelIssueTypes)[number]) {
   return ({ NORMAL: "정상", TYPO: "오타", MISSING: "누락", CROPPED: "잘림", LAYOUT: "배치 문제", OTHER: "기타" })[issue];
+}
+
+function attemptSourceLabel(attempt: { source: string; isMock: boolean }) {
+  if (attempt.source === "LEGACY") return "LEGACY 원본 · 프롬프트 없음";
+  return attempt.isMock ? "MOCK — 실제 이미지 없음" : "LIVE";
 }
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; scenario?: string; scenarioError?: string; generation?: string; generationError?: string; review?: string; reviewError?: string; compare?: string; export?: string; exportError?: string }> }) {
@@ -62,8 +69,11 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const generateScenario = createMockScenarioVersion.bind(null, project.id);
   const saveScenario = saveScenarioRevision.bind(null, project.id);
   const approveScenario = scenario ? approveScenarioVersion.bind(null, project.id, project.selectedScenarioVersion!.id) : null;
-  const generateMockImage = generateMockImageAttempt.bind(null, project.id);
-  const promptPreview = scenario && project.selectedScenarioVersion?.approvedAt ? getMockPromptPreview(project, project.selectedScenarioVersion) : null;
+  const generateImage = generateImageAttempt.bind(null, project.id);
+  const imageRuntime = getImageRuntime();
+  const isLive = imageRuntime.mode === "live";
+  const isLegacyProject = project.imageAttempts.some((attempt) => attempt.source === "LEGACY");
+  const promptPreview = !isLegacyProject && scenario && project.selectedScenarioVersion?.approvedAt ? getMockPromptPreview(project, project.selectedScenarioVersion) : null;
   const reviewAttempt = project.imageAttempts.find((attempt) => attempt.status === "READY" && !attempt.imageReview);
   const rejectedAttempt = project.imageAttempts.find((attempt) => attempt.imageReview?.result === "REJECTED");
   const compareAttempt = project.imageAttempts.find((attempt) => attempt.id === compare) ?? project.imageAttempts.find((attempt) => attempt.id !== reviewAttempt?.id);
@@ -79,7 +89,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     {saved && <p role="status">저장했습니다.</p>}{error && <p role="alert">입력값을 확인해 주세요.</p>}
     {scenarioNotice && <p role="status">시나리오 버전이 저장되었습니다.</p>}
     {scenarioError && <p role="alert">시나리오를 저장하거나 승인할 수 없습니다. 현재 상태와 입력값을 확인해 주세요.</p>}
-    {generation && <p role="status">MOCK 이미지 생성 시도가 {generation === "ready" ? "준비됨" : generation === "failed" ? "실패로 기록됨" : "기존 요청으로 확인됨"} 상태로 기록되었습니다. 실제 이미지나 비용은 발생하지 않았습니다.</p>}
+    {generation && <p role="status">{isLive ? "LIVE" : "MOCK"} 이미지 생성 시도가 {generation === "ready" ? "준비됨" : generation === "failed" ? "실패로 기록됨" : "기존 요청으로 확인됨"} 상태로 기록되었습니다.{isLive && generation === "ready" ? " 실제 WebP를 저장했으며, 다음 단계에서 사람 검수를 진행해 주세요." : !isLive ? " 실제 이미지나 비용은 발생하지 않았습니다." : ""}</p>}
     {generationError && <p role="alert">이미지 생성을 시작할 수 없습니다. 승인 상태, 중복 요청 또는 재생성 사유를 확인해 주세요.</p>}
     {review === "rejected" && <p role="status">검수 반려를 기록했습니다. 반려 사유를 반영한 수정 프롬프트 재생성을 진행할 수 있습니다.</p>}
     {review === "mock-passed" && <p role="status">검수표는 통과로 저장했지만 MOCK 결과이므로 최종 내보내기는 계속 차단됩니다.</p>}
@@ -93,6 +103,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     {exportError === "review_required" && <p role="alert">사람이 통과 처리한 LIVE 이미지 시도를 먼저 선택해야 합니다.</p>}
     {exportError === "image_file_missing" && <p role="alert">내보낼 실제 WebP 파일이 아직 저장되지 않았습니다. 현재 Phase에서는 MOCK 결과만 있어 파일을 만들지 않습니다.</p>}
     {exportError === "export_validation_error" && <p role="alert">갤러리 JSON 계약을 검증하지 못했습니다. 메타데이터를 다시 저장해 주세요.</p>}
+    {isLegacyProject && <p role="status">이관된 기존 웹툰은 이미 4컷 합성본입니다. 2단계 시나리오·3단계 이미지 생성은 건너뛰고 4단계 사람 검수부터 진행합니다.</p>}
 
     <section className="card" aria-labelledby="workflow-title">
       <h2 id="workflow-title">이 도구로 만드는 것</h2>
@@ -102,7 +113,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <strong>{title}</strong><span>{description}</span>{index === currentWorkflowStep && <em>현재 단계</em>}
         </li>)}
       </ol>
-      <p className="note"><strong>완성된 웹툰은 5단계에서 큰 미리보기로 확인하고 WebP·JSON으로 내보냅니다.</strong> 현재 MOCK 생성본은 실제 이미지가 아니므로, 검수표를 작성해도 최종 미리보기·내보내기로 갈 수 없습니다.</p>
+      <p className="note"><strong>완성된 웹툰은 5단계에서 큰 미리보기로 확인하고 WebP·JSON으로 내보냅니다.</strong> {isLegacyProject ? "이 프로젝트는 과거 원본을 이관한 LEGACY 자산입니다. 프롬프트는 없으며, 사람이 원본을 검수한 뒤에만 내보냅니다." : "MOCK 생성본은 실제 이미지가 아니므로, 검수표를 작성해도 최종 미리보기·내보내기로 갈 수 없습니다."}</p>
     </section>
 
     <section className="card"><h2>기본 정보</h2><form action={update} className="form-grid">
@@ -113,8 +124,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <label>메모<textarea name="memo" defaultValue={project.memo ?? ""} maxLength={500} /></label><button type="submit">저장</button>
     </form><form action={archive}><button className="secondary" type="submit">프로젝트 보관</button></form></section>
 
-    <section className="card" aria-labelledby="scenario-title"><h2 id="scenario-title">2단계 · 4컷 시나리오</h2>
-      <p>현재 상태: <strong>{project.status}</strong> · 모든 자동 생성본은 <strong>MOCK</strong>이며 실제 OpenAI 호출은 하지 않습니다.</p>
+    {!isLegacyProject && <section className="card" aria-labelledby="scenario-title"><h2 id="scenario-title">2단계 · 4컷 시나리오</h2>
+      <p>현재 상태: <strong>{project.status}</strong> · {isLegacyProject ? <><strong>LEGACY</strong> 원본 이관 프로젝트이며, 원본 프롬프트와 생성 모델 정보는 없습니다.</> : <>시나리오는 현재 <strong>MOCK</strong> 초안으로 만들며, 이미지 생성은 {isLive ? <strong>LIVE</strong> : <strong>MOCK</strong>} 모드입니다.</>}</p>
       {!scenario && <form action={generateScenario}><button type="submit">MOCK 시나리오 만들기</button></form>}
       {scenario && <>
         <p>선택된 버전: v{project.selectedScenarioVersion!.version} · 출처: {project.selectedScenarioVersion!.sourceModel}{project.selectedScenarioVersion!.approvedAt ? " · 서버 승인 기록 있음" : ""}</p>
@@ -126,26 +137,26 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         {project.status === "SCENARIO_READY" && approveScenario && <form action={approveScenario}><button type="submit">이 시나리오 버전 승인</button></form>}
       </>}
       {project.scenarioVersions.length > 0 && <p>보존된 시나리오 버전: {project.scenarioVersions.map((version) => `v${version.version}${version.approvedAt ? " (승인)" : ""}`).join(", ")}</p>}
-    </section>
+    </section>}
 
-    <section className="card" aria-labelledby="image-generation-title"><h2 id="image-generation-title">3단계 · 이미지 생성 (MOCK 전용)</h2>
-      <p>승인된 시나리오만 서버에서 생성 시도로 저장합니다. 이 단계의 MOCK 결과는 실제 이미지가 아니며 내보낼 수 없습니다.</p>
-      {promptPreview ? <><h3>실제 호출 전 프롬프트·옵션 미리보기</h3><p>실행 모드: <strong>MOCK</strong> · 실제 OpenAI 호출: <strong>없음</strong> · LIVE 예정 모델 설정: {promptPreview.options.plannedLiveModel} · 크기: {promptPreview.options.size} · 품질: {promptPreview.options.quality}</p><details><summary>최종 프롬프트 전문 보기</summary><pre>{promptPreview.prompt}</pre><p>SHA-256: {promptPreview.promptHash}</p></details>
-        {project.status === "SCENARIO_APPROVED" && !rejectedAttempt && <form action={generateMockImage}><input type="hidden" name="idempotencyKey" value={randomUUID()} /><button type="submit">MOCK 이미지 생성 시도 기록</button></form>}
-      </> : <p>이미지 생성은 서버에서 승인된 시나리오가 선택된 뒤에만 시작할 수 있습니다.</p>}
+    {!isLegacyProject && <section className="card" aria-labelledby="image-generation-title"><h2 id="image-generation-title">3단계 · 이미지 생성 ({isLive ? "LIVE" : "MOCK"})</h2>
+      <p>{isLegacyProject ? "선택한 과거 원본을 검증된 WebP 사본으로 이관했습니다. OpenAI API를 호출하지 않았고, 원본 프롬프트는 없습니다." : <>승인된 시나리오만 서버에서 생성 시도로 저장합니다. {isLive ? "LIVE 버튼을 누르면 OpenAI Image API를 한 번 호출해 WebP를 로컬에 보존합니다." : "MOCK 결과는 실제 이미지가 아니며 내보낼 수 없습니다."}</>}</p>
+      {promptPreview ? <><h3>실제 호출 전 프롬프트·옵션 미리보기</h3><p>실행 모드: <strong>{isLive ? "LIVE" : "MOCK"}</strong> · {isLive ? `모델: ${imageRuntime.model} · WebP 압축: ${imageRuntime.outputCompression}` : "실제 OpenAI 호출: 없음"} · 크기: {promptPreview.options.size} · 품질: {promptPreview.options.quality}</p><details><summary>최종 프롬프트 전문 보기</summary><pre>{promptPreview.prompt}</pre><p>SHA-256: {promptPreview.promptHash}</p></details>
+        {project.status === "SCENARIO_APPROVED" && !rejectedAttempt && <form action={generateImage}><input type="hidden" name="idempotencyKey" value={randomUUID()} /><button type="submit">{isLive ? "LIVE 이미지 생성" : "MOCK 이미지 생성 시도 기록"}</button></form>}
+      </> : !isLegacyProject ? <p>이미지 생성은 서버에서 승인된 시나리오가 선택된 뒤에만 시작할 수 있습니다.</p> : null}
       {project.generationLock && <p role="status">생성 잠금이 활성화되어 있습니다. 만료: {project.generationLock.expiresAt.toLocaleString("ko-KR")}</p>}
-      {rejectedAttempt && project.status === "SCENARIO_APPROVED" && <form action={generateMockImage} className="form-grid" aria-label="반려된 이미지 수정 재생성"><h3>반려된 이미지 수정 재생성</h3><p className="note">반려 사유를 반영한 수정 지시를 남겨야 새 시도를 만들 수 있습니다. 이전 시도는 그대로 보존됩니다.</p><input type="hidden" name="idempotencyKey" value={randomUUID()} /><input type="hidden" name="parentAttemptId" value={rejectedAttempt.id} /><input type="hidden" name="regenerationMode" value="MODIFIED_PROMPT" /><label>수정 지시<textarea name="regenerationReason" required maxLength={300} placeholder="예: 2컷 말풍선의 한글이 잘리지 않도록 여백을 확보해 주세요." /></label><button type="submit">반려 사유로 MOCK 재생성 기록</button></form>}
-      {project.status === "SCENARIO_APPROVED" && project.imageAttempts.some((attempt) => attempt.status === "FAILED") && !rejectedAttempt && <form action={generateMockImage} className="form-grid" aria-label="실패한 MOCK 생성 재시도"><h3>실패한 생성 재시도</h3><input type="hidden" name="idempotencyKey" value={randomUUID()} /><label>부모 생성 시도<select name="parentAttemptId" defaultValue={project.imageAttempts.find((attempt) => attempt.status === "FAILED")?.id}>{project.imageAttempts.filter((attempt) => attempt.status === "FAILED").map((attempt) => <option key={attempt.id} value={attempt.id}>{attempt.createdAt.toLocaleString("ko-KR")} · {attempt.errorCode}</option>)}</select></label><label>재생성 방식<select name="regenerationMode" defaultValue="SAME_PROMPT"><option value="SAME_PROMPT">같은 프롬프트로 재생성</option><option value="MODIFIED_PROMPT">수정 지시를 추가해 재생성</option></select></label><label>수정 지시 (수정 재생성일 때만 입력)<textarea name="regenerationReason" maxLength={300} placeholder="예: 2컷 말풍선 여백을 더 확보해 주세요." /></label><button type="submit">실패한 MOCK 생성 재시도 기록</button></form>}
-    </section>
+      {rejectedAttempt && project.status === "SCENARIO_APPROVED" && <form action={generateImage} className="form-grid" aria-label="반려된 이미지 수정 재생성"><h3>반려된 이미지 수정 재생성</h3><p className="note">반려 사유를 반영한 수정 지시를 남겨야 새 시도를 만들 수 있습니다. 이전 시도는 그대로 보존됩니다.</p><input type="hidden" name="idempotencyKey" value={randomUUID()} /><input type="hidden" name="parentAttemptId" value={rejectedAttempt.id} /><input type="hidden" name="regenerationMode" value="MODIFIED_PROMPT" /><label>수정 지시<textarea name="regenerationReason" required maxLength={300} placeholder="예: 2컷 말풍선의 한글이 잘리지 않도록 여백을 확보해 주세요." /></label><button type="submit">반려 사유로 {isLive ? "LIVE" : "MOCK"} 재생성</button></form>}
+      {project.status === "SCENARIO_APPROVED" && project.imageAttempts.some((attempt) => attempt.status === "FAILED") && !rejectedAttempt && <form action={generateImage} className="form-grid" aria-label="실패한 생성 재시도"><h3>실패한 생성 재시도</h3><input type="hidden" name="idempotencyKey" value={randomUUID()} /><label>부모 생성 시도<select name="parentAttemptId" defaultValue={project.imageAttempts.find((attempt) => attempt.status === "FAILED")?.id}>{project.imageAttempts.filter((attempt) => attempt.status === "FAILED").map((attempt) => <option key={attempt.id} value={attempt.id}>{attempt.createdAt.toLocaleString("ko-KR")} · {attempt.errorCode}</option>)}</select></label><label>재생성 방식<select name="regenerationMode" defaultValue="SAME_PROMPT"><option value="SAME_PROMPT">같은 프롬프트로 재생성</option><option value="MODIFIED_PROMPT">수정 지시를 추가해 재생성</option></select></label><label>수정 지시 (수정 재생성일 때만 입력)<textarea name="regenerationReason" maxLength={300} placeholder="예: 2컷 말풍선 여백을 더 확보해 주세요." /></label><button type="submit">실패한 {isLive ? "LIVE" : "MOCK"} 생성 재시도</button></form>}
+    </section>}
 
     <section className="card" aria-labelledby="review-title"><h2 id="review-title">4단계 · 이미지 품질 검수</h2><p>사람이 예상 대사와 각 컷을 대조해 판정합니다. 자동 OCR·비전 결과로 통과 처리하지 않으며, 문제를 발견하면 사유를 남겨야 합니다.</p>
-      {reviewAttempt && scenario ? <><p><strong>검수 대상:</strong> {reviewAttempt.createdAt.toLocaleString("ko-KR")} · {reviewAttempt.isMock ? "MOCK (실제 이미지 없음)" : "LIVE 이미지"}</p><div className="comic-review-grid">{scenario.panels.map((panel) => <article className="panel-preview" key={panel.number}><h3>{panel.number}컷</h3><div className="mock-canvas" aria-label={`${panel.number}컷 이미지 미리보기`}>{reviewAttempt.isMock ? "MOCK 이미지 없음" : "생성 이미지 미리보기"}</div><p><strong>예상 대사</strong><br />{panel.dialogues.join(" / ")}</p><details><summary>확대 보기</summary><div className="mock-canvas mock-canvas-large">{reviewAttempt.isMock ? "MOCK 결과에는 확대할 실제 이미지가 없습니다." : "LIVE 이미지 확대 영역"}</div></details></article>)}</div><form action={submitImageReview.bind(null, project.id, reviewAttempt.id)} className="form-grid" aria-label="컷별 이미지 검수"><h3>컷별 검수표</h3>{[1, 2, 3, 4].map((number) => <label key={number}>{number}컷 판정<select name={`panel-${number}-issue`} required defaultValue="NORMAL">{panelIssueTypes.map((issue) => <option key={issue} value={issue}>{issueLabel(issue)}</option>)}</select></label>)}<label>반려 사유 (문제가 한 컷이라도 있으면 필수)<textarea name="rejectionReason" maxLength={1000} placeholder="예: 2컷의 '응답' 글자가 잘렸습니다. 말풍선 여백을 확보해 주세요." /></label><label className="checkbox-label"><input type="checkbox" name="finalConfirmation" value="true" /> 네 컷 모두 정상이며 사람이 최종 확인했습니다.</label><button type="submit">검수 결과 저장</button></form></> : <p className="note">검수할 READY 이미지가 생기면, 이곳에서 1~4컷 판정과 반려 사유를 기록합니다.</p>}
-      {project.imageAttempts.some((attempt) => attempt.imageReview) && <><h3>저장된 검수 이력</h3><ul>{project.imageAttempts.filter((attempt) => attempt.imageReview).map((attempt) => <li key={attempt.id}><strong>{attempt.imageReview!.result}</strong> · {attempt.isMock ? "MOCK — 최종 내보내기 차단" : "LIVE"} · {attempt.imageReview!.reviewedAt.toLocaleString("ko-KR")}{attempt.imageReview!.notes ? <><br />사유: {attempt.imageReview!.notes}</> : null}</li>)}</ul></>}
+      {reviewAttempt && scenario ? <><p><strong>검수 대상:</strong> {reviewAttempt.createdAt.toLocaleString("ko-KR")} · {attemptSourceLabel(reviewAttempt)}</p>{reviewAttempt.source === "LEGACY" && <p className="note">원본 프롬프트와 컷별 예상 대사 정보가 없습니다. 기존 웹툰은 이미 4컷이 합쳐진 한 장의 이미지이므로, 전체 이미지를 보고 실제 대사·잘림·배치를 직접 확인해 판정해 주세요.</p>}<div className="comic-review-grid">{(reviewAttempt.source === "LEGACY" ? scenario.panels.slice(0, 1) : scenario.panels).map((panel) => <article className="panel-preview" key={panel.number}><h3>{reviewAttempt.source === "LEGACY" ? "원본 4컷 합성 이미지" : `${panel.number}컷`}</h3>{reviewAttempt.isMock ? <div className="mock-canvas" aria-label={`${panel.number}컷 이미지 미리보기`}>MOCK 이미지 없음</div> : <img className="live-comic-image" src={`/api/image-attempts/${reviewAttempt.id}/file`} alt={`${project.concept} 4컷 웹툰 전체 이미지`} />}{reviewAttempt.source === "LEGACY" ? <p><strong>원본 대사</strong><br />직접 확인 필요 (기록 없음)</p> : <p><strong>예상 대사</strong><br />{panel.dialogues.join(" / ")}</p>}<details><summary>확대 보기</summary>{reviewAttempt.isMock ? <div className="mock-canvas mock-canvas-large">MOCK 결과에는 확대할 실제 이미지가 없습니다.</div> : <img className="live-comic-image live-comic-image-large" src={`/api/image-attempts/${reviewAttempt.id}/file`} alt={`${project.concept} 생성 이미지 확대`} />}</details></article>)}</div><form action={submitImageReview.bind(null, project.id, reviewAttempt.id)} className="form-grid" aria-label="컷별 이미지 검수"><h3>컷별 검수표</h3>{[1, 2, 3, 4].map((number) => <label key={number}>{number}컷 판정<select name={`panel-${number}-issue`} required defaultValue="NORMAL">{panelIssueTypes.map((issue) => <option key={issue} value={issue}>{issueLabel(issue)}</option>)}</select></label>)}<label>반려 사유 (문제가 한 컷이라도 있으면 필수)<textarea name="rejectionReason" maxLength={1000} placeholder="예: 2컷의 '응답' 글자가 잘렸습니다. 말풍선 여백을 확보해 주세요." /></label><label className="checkbox-label"><input type="checkbox" name="finalConfirmation" value="true" /> 네 컷 모두 정상이며 사람이 최종 확인했습니다.</label><button type="submit">검수 결과 저장</button></form></> : <p className="note">검수할 READY 이미지가 생기면, 이곳에서 1~4컷 판정과 반려 사유를 기록합니다.</p>}
+      {project.imageAttempts.some((attempt) => attempt.imageReview) && <><h3>저장된 검수 이력</h3><ul>{project.imageAttempts.filter((attempt) => attempt.imageReview).map((attempt) => <li key={attempt.id}><strong>{attempt.imageReview!.result}</strong> · {attempt.source === "LEGACY" ? attemptSourceLabel(attempt) : attempt.isMock ? "MOCK — 최종 내보내기 차단" : "LIVE"} · {attempt.imageReview!.reviewedAt.toLocaleString("ko-KR")}{attempt.imageReview!.notes ? <><br />사유: {attempt.imageReview!.notes}</> : null}</li>)}</ul></>}
     </section>
 
     <section className="card" id="attempt-comparison" aria-labelledby="attempt-history-title"><h2 id="attempt-history-title">생성 시도 이력·비교</h2><p>새 생성과 검수 결과는 이전 기록을 덮어쓰지 않습니다. 비교할 과거 시도를 선택하면 프롬프트·옵션·검수 결과를 나란히 확인할 수 있습니다.</p>
-      {project.imageAttempts.length > 0 ? <><ul>{project.imageAttempts.map((attempt) => <li key={attempt.id}><strong>{attempt.status}</strong> · {attempt.isMock ? "MOCK — 실제 이미지 없음" : "LIVE"} · {attempt.requestedModel} · {attempt.createdAt.toLocaleString("ko-KR")} · <Link href={`/projects/${project.id}?compare=${attempt.id}#attempt-comparison`}>이 시도와 비교</Link><br />프롬프트 SHA-256: {attempt.promptHash}<br />옵션: {attempt.size} / {attempt.quality} / {attempt.outputFormat}{attempt.imageReview ? <><br />검수: {attempt.imageReview.result}</> : null}{attempt.errorCode ? <><br />안전 오류: {attempt.errorCode} — {attempt.safeErrorMessage}</> : null}</li>)}</ul>
-        {reviewAttempt && compareAttempt && <div className="attempt-compare"><article><h3>현재 검수 대상</h3><p>{reviewAttempt.createdAt.toLocaleString("ko-KR")}</p><p>{reviewAttempt.promptHash}</p><p>{reviewAttempt.isMock ? "MOCK — 실제 이미지 없음" : "LIVE"}</p></article><article><h3>비교 시도</h3><p>{compareAttempt.createdAt.toLocaleString("ko-KR")}</p><p>{compareAttempt.promptHash}</p><p>{compareAttempt.imageReview ? `검수 ${compareAttempt.imageReview.result}` : compareAttempt.status}</p></article></div>}
+      {project.imageAttempts.length > 0 ? <><ul>{project.imageAttempts.map((attempt) => <li key={attempt.id}><strong>{attempt.status}</strong> · {attemptSourceLabel(attempt)} · {attempt.requestedModel} · {attempt.createdAt.toLocaleString("ko-KR")} · <Link href={`/projects/${project.id}?compare=${attempt.id}#attempt-comparison`}>이 시도와 비교</Link><br />{attempt.source === "LEGACY" ? <>원본: {attempt.legacyOriginalFileName} · SHA-256: {attempt.legacyOriginalSha256}<br />프롬프트: 없음 (promptUnavailable=true)</> : <>프롬프트 SHA-256: {attempt.promptHash}</>}<br />옵션: {attempt.size} / {attempt.quality} / {attempt.outputFormat}{attempt.imageReview ? <><br />검수: {attempt.imageReview.result}</> : null}{attempt.errorCode ? <><br />안전 오류: {attempt.errorCode} — {attempt.safeErrorMessage}</> : null}</li>)}</ul>
+        {reviewAttempt && compareAttempt && <div className="attempt-compare"><article><h3>현재 검수 대상</h3><p>{reviewAttempt.createdAt.toLocaleString("ko-KR")}</p><p>{reviewAttempt.promptHash}</p><p>{attemptSourceLabel(reviewAttempt)}</p></article><article><h3>비교 시도</h3><p>{compareAttempt.createdAt.toLocaleString("ko-KR")}</p><p>{compareAttempt.promptHash}</p><p>{compareAttempt.imageReview ? `검수 ${compareAttempt.imageReview.result}` : compareAttempt.status}</p></article></div>}
       </> : <p className="note">첫 생성 시도가 기록되면 프롬프트·옵션·검수 결과 비교가 여기에 쌓입니다.</p>}
     </section>
 
@@ -158,7 +169,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <label>해설 문단 (빈 줄로 문단 구분)<textarea name="paragraphs" required maxLength={9000} defaultValue={metadataParagraphs} placeholder="첫 번째 해설 문단\n\n두 번째 해설 문단" /></label>
         <button type="submit">메타데이터 저장·검증</button>
       </form>
-      <p><strong>내보내기 상태: </strong>{exportEligibility.ok ? "내보내기 준비 완료" : hasPassedMock ? "MOCK 검수 통과 — 최종 내보내기 차단" : "LIVE 이미지·사람 검수·WebP 파일 대기"}</p>
+      <p><strong>내보내기 상태: </strong>{exportEligibility.ok ? "내보내기 준비 완료" : hasPassedMock ? "MOCK 검수 통과 — 최종 내보내기 차단" : isLegacyProject ? "LEGACY WebP·사람 검수·메타데이터 대기" : "LIVE 이미지·사람 검수·WebP 파일 대기"}</p>
       {hasPassedMock && <p className="note">MOCK 결과는 실제 이미지 바이트가 아니므로 WebP나 JSON을 만들지 않습니다. 실제 LIVE 생성과 사람 검수 통과 뒤에만 결과물을 확인할 수 있습니다.</p>}
       <form action={requestExport.bind(null, project.id)}><button type="submit" disabled={!exportEligibility.ok}>WebP + JSON 묶음 내보내기</button></form>
       {project.exportBundles.length > 0 ? <><h3>내보낸 묶음 이력</h3><ul>{project.exportBundles.map((bundle) => <li key={bundle.id}>v{bundle.exportVersion} · {bundle.createdAt.toLocaleString("ko-KR")} · {bundle.imagePath} · {bundle.jsonPath}</li>)}</ul></> : <p className="note">아직 실제 내보낸 묶음이 없습니다.</p>}

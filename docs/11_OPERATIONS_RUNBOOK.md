@@ -4,7 +4,7 @@
 
 ## 운영 원칙
 
-- 기본 실행값은 `AI_GENERATION_ENABLED=false`, `AI_GENERATION_MODE=mock`입니다. LIVE 호출은 별도의 사용자 승인과 제한된 횟수·비용 범위가 있을 때만 허용합니다.
+- 기본 실행값은 `AI_GENERATION_ENABLED=false`, `AI_GENERATION_MODE=mock`입니다. 개인 운영자는 유효한 API 키를 설정한 뒤 LIVE 모드로 전환할 수 있으며, 별도 사용자 승인 화면이나 횟수·비용 상한을 요구하지 않습니다. 다만 시나리오 승인, 서버 잠금, 멱등성 검증은 중복 요청 방지를 위해 유지합니다.
 - API 키는 `.env.local`의 `OPENAI_API_KEY`에만 넣습니다. `.env.example`, 문서, 로그, Git에 키를 쓰지 않습니다.
 - `data/`, `storage/`, `logs/`, `backup_images/`, `.env.local`은 Git 제외 대상입니다. `git status --ignored`로 확인할 수 있습니다.
 - 운영 데이터와 과거 원본은 삭제·이름 변경·자동 이관하지 않습니다.
@@ -36,6 +36,8 @@ npm run test
 npm run test:e2e
 npm run build
 ```
+
+`npm run test:e2e`는 실행할 때마다 `data/e2e/app.db`를 새로 만들고 모든 Prisma 마이그레이션과 100개 용어 시드를 적용합니다. 이 테스트 DB는 Git 제외 대상이며, 운영 DB인 `data/app.db`와 실행 중인 3000번 개발 서버를 재사용하지 않습니다.
 
 마이그레이션을 적용하기 전, LIVE 생성 또는 대량 이관 전에, 그리고 중요한 작업 종료 후에는 먼저 백업을 만듭니다.
 
@@ -91,4 +93,4 @@ npm run ops:restore:validate -- --backup data/backups/backup-YYYYMMDDTHHMMSSZ-xx
 - 자동 검증: `npm run test`의 backup manifest 단위 검증 및 전체 lint/typecheck/E2E/build 게이트
 - 수동 운영 검증: 새 백업 생성 → 해당 백업의 임시 복원 검증 → 활성 DB SHA-256 불변 확인
 - 비용 발생 API 호출: 0회
-- 알려진 제한: 실제 LIVE 이미지 생성과 실제 운영 경로 전환은 사용자 승인 없이 실행하지 않는다. 자동 복원은 의도적으로 제공하지 않는다.
+- 알려진 제한: 실제 LIVE 이미지 생성은 유효한 API 키·프로젝트 권한이 필요하며, 실제 운영 경로 전환은 자동화하지 않는다.

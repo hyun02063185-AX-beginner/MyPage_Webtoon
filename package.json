@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/prepare-e2e.mjs && playwright test",
     "ops:backup": "node scripts/backup.mjs",
     "ops:restore:validate": "node scripts/validate-restore.mjs",
     "prisma:generate": "prisma generate",
@@ -24,6 +24,7 @@
     "openai": "7.10.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "sharp": "^0.35.4",
     "zod": "4.5.4"
   },
   "devDependencies": {

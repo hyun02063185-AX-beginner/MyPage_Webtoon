@@ -102,6 +102,7 @@ export async function createMockImageAttempt(input: MockGenerationInput): Promis
           quality: options.quality,
           outputFormat: options.outputFormat,
           outputCompression: options.outputCompression,
+          source: "MOCK",
           status: "GENERATING",
           isMock: true,
           regenerationMode: input.regenerationMode ?? "ORIGINAL",

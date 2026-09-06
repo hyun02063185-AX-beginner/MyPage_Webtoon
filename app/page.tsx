@@ -30,13 +30,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <li><strong>3. 이미지 생성과 사람 검수</strong><span>예상 대사와 결과를 컷별로 비교합니다.</span></li>
           <li><strong>4. 완성본 미리보기·내보내기</strong><span>검수 통과 뒤 프로젝트 화면의 5단계에서 WebP·JSON을 준비합니다.</span></li>
         </ol>
-        <p className="note">현재는 비용 없는 MOCK 모드입니다. MOCK 결과는 실제 웹툰이 아니며 최종 내보내기에 사용할 수 없습니다.</p>
+        <p className="note">{readiness.modeLabel === "LIVE" ? "LIVE 모드에서는 승인된 시나리오로 실제 WebP를 생성하고, 사람 검수 통과 뒤에만 내보낼 수 있습니다." : "현재는 비용 없는 MOCK 모드입니다. MOCK 결과는 실제 웹툰이 아니며 최종 내보내기에 사용할 수 없습니다."}</p>
       </section>
       <section aria-labelledby="setup-title" className="card">
         <h2 id="setup-title">로컬 환경 상태</h2>
         <p data-testid="ai-mode">AI 생성 모드: <strong>{readiness.modeLabel}</strong></p>
         <p>{readiness.message}</p>
-        <p className="note">이 단계에서는 실제 OpenAI 호출과 이미지 생성이 비활성화되어 있습니다.</p>
+        <p className="note">{readiness.modeLabel === "LIVE" ? "API 키는 서버에서만 사용하며, 생성 버튼을 누르기 전에는 OpenAI 요청이 발생하지 않습니다." : "이 단계에서는 실제 OpenAI 호출과 이미지 생성이 비활성화되어 있습니다."}</p>
       </section>
       <section aria-labelledby="project-title" className="card">
         <h2 id="project-title">새 웹툰 프로젝트</h2>

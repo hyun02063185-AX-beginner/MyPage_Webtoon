@@ -71,6 +71,10 @@ model ImageAttempt {
   quality               String
   outputFormat          String
   outputCompression     Int?
+  source                String          @default("MOCK")
+  legacyAssetRef        String?         @unique
+  legacyOriginalFileName String?
+  legacyOriginalSha256  String?
   status                String          @default("QUEUED")
   isMock                Boolean         @default(true)
   filePath              String?
