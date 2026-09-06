@@ -19,9 +19,19 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="shell">
-      <p className="eyebrow">PRIVATE CREATION TOOL · PHASE 1</p>
+      <p className="eyebrow">PRIVATE CREATION TOOL</p>
       <h1>AI·AX 용어 4컷 만화 생성기</h1>
       <p className="intro">시나리오·프롬프트·검수 이력을 보존해 MyPage 갤러리용 결과물을 준비합니다.</p>
+      <section className="card" aria-labelledby="start-title">
+        <h2 id="start-title">처음 만드는 방법</h2>
+        <ol className="workflow compact-workflow" aria-label="웹툰 제작 흐름">
+          <li className="workflow-current"><strong>1. 새 프로젝트 만들기</strong><span>아래에서 개념과 대상 독자를 입력합니다.</span></li>
+          <li><strong>2. 4컷 시나리오 승인</strong><span>프로젝트 화면에서 내용을 확인·수정합니다.</span></li>
+          <li><strong>3. 이미지 생성과 사람 검수</strong><span>예상 대사와 결과를 컷별로 비교합니다.</span></li>
+          <li><strong>4. 완성본 미리보기·내보내기</strong><span>검수 통과 뒤 프로젝트 화면의 5단계에서 WebP·JSON을 준비합니다.</span></li>
+        </ol>
+        <p className="note">현재는 비용 없는 MOCK 모드입니다. MOCK 결과는 실제 웹툰이 아니며 최종 내보내기에 사용할 수 없습니다.</p>
+      </section>
       <section aria-labelledby="setup-title" className="card">
         <h2 id="setup-title">로컬 환경 상태</h2>
         <p data-testid="ai-mode">AI 생성 모드: <strong>{readiness.modeLabel}</strong></p>

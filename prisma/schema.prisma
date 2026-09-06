@@ -78,10 +78,28 @@ model ImageAttempt {
   scenarioVersion       ScenarioVersion @relation("ScenarioImageAttempts", fields: [scenarioVersionId], references: [id], onDelete: Restrict)
   parentAttempt         ImageAttempt?   @relation("AttemptRegenerations", fields: [parentAttemptId], references: [id], onDelete: Restrict)
   regeneratedAttempts   ImageAttempt[]  @relation("AttemptRegenerations")
+  imageReview           ImageReview?
 
   @@index([projectId, createdAt])
   @@index([scenarioVersionId])
   @@index([parentAttemptId])
+}
+
+model ImageReview {
+  id              String       @id @default(cuid())
+  imageAttemptId  String       @unique
+  result          String
+  panelChecksJson String
+  typoFound       Boolean      @default(false)
+  missingText     Boolean      @default(false)
+  croppedText     Boolean      @default(false)
+  layoutIssue     Boolean      @default(false)
+  contentIssue    Boolean      @default(false)
+  notes           String?
+  reviewedAt      DateTime     @default(now())
+  imageAttempt    ImageAttempt @relation(fields: [imageAttemptId], references: [id], onDelete: Restrict)
+
+  @@index([result, reviewedAt])
 }
 
 model GenerationLock {

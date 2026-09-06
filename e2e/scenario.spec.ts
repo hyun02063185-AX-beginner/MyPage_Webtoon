@@ -26,4 +26,19 @@ test("creates, revises, preserves, and approves a four-panel mock scenario", asy
   await expect(page.getByText("MOCK 이미지 생성 시도가 준비됨 상태로 기록되었습니다.")).toBeVisible();
   await expect(page.getByText("현재 상태:")).toContainText("IMAGE_REVIEW");
   await expect(page.getByText("MOCK — 실제 이미지 없음")).toBeVisible();
+
+  await page.getByLabel("2컷 판정").selectOption("TYPO");
+  await page.getByLabel("반려 사유 (문제가 한 컷이라도 있으면 필수)").fill("두 번째 컷의 한글 대사에 오타가 있습니다.");
+  await page.getByRole("button", { name: "검수 결과 저장" }).click();
+  await expect(page.getByText("검수 반려를 기록했습니다.")).toBeVisible();
+  await expect(page.getByText("현재 상태:")).toContainText("SCENARIO_APPROVED");
+  await expect(page.getByRole("heading", { name: "반려된 이미지 수정 재생성" })).toBeVisible();
+
+  await page.getByLabel("수정 지시").fill("두 번째 컷의 한국어 대사를 정확히 고쳐 주세요.");
+  await page.getByRole("button", { name: "반려 사유로 MOCK 재생성 기록" }).click();
+  await expect(page.getByText("현재 상태:")).toContainText("IMAGE_REVIEW");
+  await page.getByLabel("네 컷 모두 정상이며 사람이 최종 확인했습니다.").check();
+  await page.getByRole("button", { name: "검수 결과 저장" }).click();
+  await expect(page.getByText("검수표는 통과로 저장했지만 MOCK 결과이므로 최종 내보내기는 계속 차단됩니다.")).toBeVisible();
+  await expect(page.getByText("MOCK 생성본이 있어 최종 내보내기가 차단되어 있습니다.")).toBeVisible();
 });

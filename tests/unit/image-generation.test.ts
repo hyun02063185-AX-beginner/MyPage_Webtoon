@@ -26,6 +26,7 @@ const approvedProject = {
   audience: "일반 직장인",
   purpose: "요청과 응답을 설명",
   style: "교육용 만화",
+  imageAttempts: [],
   selectedScenarioVersion: {
     id: "scenario-id",
     term: "API",

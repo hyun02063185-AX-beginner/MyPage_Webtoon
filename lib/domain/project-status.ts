@@ -7,7 +7,8 @@ const allowedTransitions: Record<ProjectStatus, readonly ProjectStatus[]> = {
   SCENARIO_APPROVED: ["IMAGE_GENERATING"],
   // A failed attempt is retained, then safely returns to the already-approved scenario for retry.
   IMAGE_GENERATING: ["SCENARIO_APPROVED", "IMAGE_REVIEW"],
-  IMAGE_REVIEW: ["APPROVED_FOR_EXPORT"],
+  // A human rejection keeps its immutable review and returns to the approved scenario for regeneration.
+  IMAGE_REVIEW: ["SCENARIO_APPROVED", "APPROVED_FOR_EXPORT"],
   APPROVED_FOR_EXPORT: ["EXPORTED"],
   EXPORTED: [],
 };

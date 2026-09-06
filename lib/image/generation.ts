@@ -56,12 +56,23 @@ export async function createMockImageAttempt(input: MockGenerationInput): Promis
 
       const project = await tx.project.findUnique({
         where: { id: input.projectId },
-        include: { selectedScenarioVersion: true },
+        include: {
+          selectedScenarioVersion: true,
+          imageAttempts: { orderBy: { createdAt: "desc" }, include: { imageReview: true } },
+        },
       });
       if (!project) return { kind: "rejected" as const, code: "PROJECT_NOT_FOUND" as const };
       const scenario = project.selectedScenarioVersion;
       if (project.status !== "SCENARIO_APPROVED" || !scenario?.approvedAt) {
         return { kind: "rejected" as const, code: "SCENARIO_NOT_APPROVED" as const };
+      }
+      const rejectedAttempt = project.imageAttempts.find((attempt) => attempt.imageReview?.result === "REJECTED");
+      if (rejectedAttempt && (
+        input.parentAttemptId !== rejectedAttempt.id
+        || input.regenerationMode !== "MODIFIED_PROMPT"
+        || !input.regenerationReason?.trim()
+      )) {
+        return { kind: "rejected" as const, code: "INVALID_REGENERATION" as const };
       }
       if (input.parentAttemptId) {
         const parent = await tx.imageAttempt.findFirst({ where: { id: input.parentAttemptId, projectId: project.id } });

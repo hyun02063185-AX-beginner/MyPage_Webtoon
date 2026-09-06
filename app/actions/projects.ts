@@ -7,6 +7,8 @@ import { canTransitionProject, type ProjectStatus } from "@/lib/domain/project-s
 import { createMockScenario } from "@/lib/scenario/mock";
 import { scenarioSchema, type Scenario } from "@/lib/scenario/schema";
 import { createMockImageAttempt } from "@/lib/image/generation";
+import { recordImageReview } from "@/lib/review/record";
+import { imageReviewInputSchema } from "@/lib/review/validation";
 
 const projectInput = z.object({
   concept: z.string().trim().min(1).max(80),
@@ -188,4 +190,24 @@ export async function generateMockImageAttempt(projectId: string, formData: Form
     redirect(`/projects/${projectIdResult.data}?generation=${result.status.toLowerCase()}`);
   }
   redirect(`/projects/${projectIdResult.data}?generationError=${result.code.toLowerCase()}`);
+}
+
+export async function submitImageReview(projectId: string, imageAttemptId: string, formData: FormData) {
+  const ids = z.tuple([idInput, idInput]).safeParse([projectId, imageAttemptId]);
+  const input = imageReviewInputSchema.safeParse({
+    panelChecks: [1, 2, 3, 4].map((panelNumber) => ({
+      panelNumber,
+      issueType: formData.get(`panel-${panelNumber}-issue`),
+    })),
+    rejectionReason: String(formData.get("rejectionReason") ?? "").trim() || undefined,
+    finalConfirmation: formData.get("finalConfirmation") === "true",
+  });
+  if (!ids.success || !input.success) redirect(`/projects/${projectId}?reviewError=invalid`);
+
+  const [, validAttemptId] = ids.data;
+  const result = await recordImageReview(validAttemptId, input.data);
+  if (result.kind === "rejected") redirect(`/projects/${projectId}?reviewError=${result.code.toLowerCase()}`);
+  if (result.result === "REJECTED") redirect(`/projects/${projectId}?review=rejected`);
+  if (result.exportBlockedByMock) redirect(`/projects/${projectId}?review=mock-passed`);
+  redirect(`/projects/${projectId}?review=passed`);
 }
