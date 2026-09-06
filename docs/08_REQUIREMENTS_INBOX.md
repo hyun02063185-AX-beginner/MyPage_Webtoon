@@ -26,7 +26,7 @@ C:\Users\hyun0\MyPage_Webtoon\backup_images
 | 요구사항 ID | 제목 | 상태 | 우선순위 | 관련 기능 | 메모 |
 |---|---|---|---|---|---|
 | REQ-20260906-001 | 과거 이미지 형식·크기 참조 및 보존 | APPROVED | Must | F-014, F-021 | `backup_images/`의 원본은 읽기 전용 참조 자산이며 Phase 7 전 운영 데이터가 아니다. |
-| REQ-20260906-002 | GitHub 저장소 기반 소스 관리 | APPROVED | Must | F-020 | 지정 원격 저장소와 GitHub noreply 커밋 이메일을 사용한다. |
+| REQ-20260906-002 | GitHub 저장소 기반 소스 관리 | DONE | Must | F-020 | 지정 원격 저장소·GitHub noreply 커밋 이메일·Git 제외 규칙을 사용하며, Phase 8 백업/복원 운영 절차를 문서화했다. |
 | REQ-20260906-003 | 신규 선정 AI·AX 초기 100개 용어 | APPROVED | Must | F-002, F-021 | 사용자가 원본 부재를 확인하고 신규 100개 용어를 다시 선정하도록 승인했다. 이 데이터는 레거시 이관본이 아니다. |
 
 상태 값:

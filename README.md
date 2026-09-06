@@ -35,6 +35,7 @@
 | `docs/07_OPERATIONS_MAINTENANCE.md` | 운영, 백업, 장애 대응, 유지보수 규칙 |
 | `docs/08_REQUIREMENTS_INBOX.md` | 사용자가 새 요구사항을 계속 추가하는 문서 |
 | `docs/09_KICKOFF_PROMPT.md` | 새 환경에서 처음 실행할 시작 프롬프트 |
+| `docs/11_OPERATIONS_RUNBOOK.md` | 새 환경 설치, 안전한 백업·임시 복원 검증, 장애 대응 |
 | `templates/gallery-item.example.json` | MyPage 갤러리 전달 데이터 예시 |
 
 ## 현재 결정

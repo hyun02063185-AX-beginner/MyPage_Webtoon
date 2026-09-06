@@ -71,6 +71,8 @@ backup-20260906-153000/
 
 복구 명령은 구현 시 스크립트로 제공하고, 원본 DB를 직접 덮어쓰기 전에 항상 임시 복원 검증을 거친다.
 
+구현된 명령과 새 환경 설치·검증 순서는 `docs/11_OPERATIONS_RUNBOOK.md`를 따른다. `npm run ops:backup`은 새 백업 폴더만 만들며, `npm run ops:restore:validate -- --backup ...`는 `data/restore-validation/`에서만 복원 후보를 검사한다. 자동으로 운영 DB를 덮어쓰는 복원 명령은 제공하지 않는다.
+
 ## 7. 배포·업데이트 체크리스트
 
 1. 승인된 요구사항과 변경 범위를 확인한다.

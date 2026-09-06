@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "ops:backup": "node scripts/backup.mjs",
+    "ops:restore:validate": "node scripts/validate-restore.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "set RUST_LOG=info&& prisma migrate dev",
     "prisma:seed": "node prisma/seed.mjs"
