@@ -20,4 +20,10 @@ test("creates, revises, preserves, and approves a four-panel mock scenario", asy
   await page.getByRole("button", { name: "이 시나리오 버전 승인" }).click();
   await expect(page.getByText("현재 상태:")).toContainText("SCENARIO_APPROVED");
   await expect(page.getByText("서버 승인 기록 있음")).toBeVisible();
+
+  await expect(page.getByText("실제 호출 전 프롬프트·옵션 미리보기")).toBeVisible();
+  await page.getByRole("button", { name: "MOCK 이미지 생성 시도 기록" }).click();
+  await expect(page.getByText("MOCK 이미지 생성 시도가 준비됨 상태로 기록되었습니다.")).toBeVisible();
+  await expect(page.getByText("현재 상태:")).toContainText("IMAGE_REVIEW");
+  await expect(page.getByText("MOCK — 실제 이미지 없음")).toBeVisible();
 });

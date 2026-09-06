@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { canTransitionProject, type ProjectStatus } from "@/lib/domain/project-status";
 import { createMockScenario } from "@/lib/scenario/mock";
 import { scenarioSchema, type Scenario } from "@/lib/scenario/schema";
+import { createMockImageAttempt } from "@/lib/image/generation";
 
 const projectInput = z.object({
   concept: z.string().trim().min(1).max(80),
@@ -35,6 +36,19 @@ export async function archiveProject(id: string) {
 }
 
 const idInput = z.string().cuid();
+const idempotencyKeyInput = z.string().uuid();
+const regenerationInput = z.object({
+  parentAttemptId: idInput,
+  regenerationMode: z.enum(["SAME_PROMPT", "MODIFIED_PROMPT"]),
+  regenerationReason: z.string().trim().max(300).optional(),
+}).superRefine((value, context) => {
+  if (value.regenerationMode === "MODIFIED_PROMPT" && !value.regenerationReason) {
+    context.addIssue({ code: "custom", path: ["regenerationReason"], message: "수정 지시가 필요합니다." });
+  }
+  if (value.regenerationMode === "SAME_PROMPT" && value.regenerationReason) {
+    context.addIssue({ code: "custom", path: ["regenerationReason"], message: "같은 프롬프트 재생성에는 수정 지시를 넣을 수 없습니다." });
+  }
+});
 
 function scenarioToDatabaseData(scenario: Scenario) {
   return {
@@ -146,4 +160,32 @@ export async function approveScenarioVersion(projectId: string, scenarioVersionI
   });
   if (!approved) redirect(`/projects/${projectId}?scenarioError=approve`);
   redirect(`/projects/${projectId}?scenario=approved`);
+}
+
+export async function generateMockImageAttempt(projectId: string, formData: FormData) {
+  const projectIdResult = idInput.safeParse(projectId);
+  const idempotencyKeyResult = idempotencyKeyInput.safeParse(formData.get("idempotencyKey"));
+  if (!projectIdResult.success || !idempotencyKeyResult.success) {
+    redirect(`/projects/${projectId}?generationError=invalid`);
+  }
+
+  const regeneration = formData.get("parentAttemptId")
+    ? regenerationInput.safeParse({
+      parentAttemptId: formData.get("parentAttemptId"),
+      regenerationMode: formData.get("regenerationMode"),
+      regenerationReason: String(formData.get("regenerationReason") ?? "").trim() || undefined,
+    })
+    : null;
+  if (regeneration && !regeneration.success) {
+    redirect(`/projects/${projectIdResult.data}?generationError=invalid_regeneration`);
+  }
+  const result = await createMockImageAttempt({
+    projectId: projectIdResult.data,
+    idempotencyKey: idempotencyKeyResult.data,
+    ...(regeneration ? regeneration.data : {}),
+  });
+  if (result.kind === "created" || result.kind === "idempotent") {
+    redirect(`/projects/${projectIdResult.data}?generation=${result.status.toLowerCase()}`);
+  }
+  redirect(`/projects/${projectIdResult.data}?generationError=${result.code.toLowerCase()}`);
 }
