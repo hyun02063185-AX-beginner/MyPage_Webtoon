@@ -1,6 +1,7 @@
 import { getRuntimeReadiness } from "@/lib/config/runtime";
 import { createProject } from "@/app/actions/projects";
 import { db } from "@/lib/db";
+import Link from "next/link";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; error?: string }> }) {
   const readiness = getRuntimeReadiness();
@@ -34,6 +35,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <button type="submit">프로젝트 만들기</button>
         </form>
         <p>최근 프로젝트: {projects.length}개</p>
+        <ul>{projects.map((project) => <li key={project.id}><Link href={`/projects/${project.id}`}>{project.concept}</Link> · {project.status}<br />{project.audience} 대상</li>)}</ul>
       </section>
       <section aria-labelledby="terms-title" className="card">
         <h2 id="terms-title">신규 선정 AI·AX 용어</h2>
