@@ -8,15 +8,42 @@ datasource db {
 }
 
 model Project {
-  id        String   @id @default(cuid())
-  concept   String
-  audience  String
-  purpose   String
-  style     String
-  memo      String?
-  status    String   @default("DRAFT")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                        String            @id @default(cuid())
+  concept                   String
+  audience                  String
+  purpose                   String
+  style                     String
+  memo                      String?
+  status                    String            @default("DRAFT")
+  selectedScenarioVersionId String?           @unique
+  selectedScenarioVersion   ScenarioVersion?  @relation("SelectedScenarioVersion", fields: [selectedScenarioVersionId], references: [id])
+  scenarioVersions          ScenarioVersion[] @relation("ProjectScenarioVersions")
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+}
+
+model ScenarioVersion {
+  id                String    @id @default(cuid())
+  projectId         String
+  version           Int
+  term              String
+  english           String?
+  title             String
+  audience          String
+  coreMessage       String
+  background        String
+  characterGuide    String
+  panelsJson        String
+  finalCaption      String
+  sourceModel       String
+  sourceResponseId  String?
+  approvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  project           Project   @relation("ProjectScenarioVersions", fields: [projectId], references: [id], onDelete: Restrict)
+  selectedForProject Project? @relation("SelectedScenarioVersion")
+
+  @@unique([projectId, version])
+  @@index([projectId, createdAt])
 }
 
 model Term {
