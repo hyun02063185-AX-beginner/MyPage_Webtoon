@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "set RUST_LOG=info&& prisma migrate dev"
+    "prisma:migrate": "set RUST_LOG=info&& prisma migrate dev",
+    "prisma:seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.1",

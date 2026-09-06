@@ -18,3 +18,17 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Term {
+  id            String   @id @default(cuid())
+  term          String
+  normalizedKey String   @unique
+  definition    String
+  category      String
+  source        String   @default("CURATED_20260906")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([term])
+  @@index([category])
+}
